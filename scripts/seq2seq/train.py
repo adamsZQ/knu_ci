@@ -32,6 +32,7 @@ spacy_en = spacy.load('en')
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+
 def tokenize_de(text):
     """
     Tokenizes German text from a string into a list of strings (tokens) and reverses it
@@ -199,5 +200,8 @@ def seq2seq_train():
         print(f'\tTrain Loss: {train_loss:.3f} | Train PPL: {math.exp(train_loss):7.3f}')
         print(f'\t Val. Loss: {valid_loss:.3f} |  Val. PPL: {math.exp(valid_loss):7.3f}')
 
+
+if __name__ == '__main__':
+    train()
 
 
