@@ -19,7 +19,7 @@ import time
 from knu_ci.seq2seq.decoder import Decoder
 from knu_ci.seq2seq.encoder import Encoder
 from knu_ci.seq2seq.seq2seq import Seq2Seq
-from knu_ci.utils import conf
+from knu_ci.utils import conf, logger
 
 SEED = 1234
 
@@ -202,6 +202,7 @@ def seq2seq_train():
 
 
 if __name__ == '__main__':
-    train()
+    logger.info('train.py test')
+    seq2seq_train()
 
 
