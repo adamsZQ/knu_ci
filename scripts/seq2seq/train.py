@@ -15,12 +15,14 @@ import random
 import math
 import time
 
-# 设定torch的随机数种子，保证每次结果一样
+from knu_ci.my_logger import Logger
 from knu_ci.seq2seq.decoder import Decoder
 from knu_ci.seq2seq.encoder import Encoder
 from knu_ci.seq2seq.seq2seq import Seq2Seq
-from knu_ci.utils import conf, logger
+from knu_ci.utils import conf
 
+
+# 设定torch的随机数种子，保证每次结果一样
 SEED = 1234
 
 random.seed(SEED)
@@ -31,6 +33,8 @@ spacy_de = spacy.load('de')
 spacy_en = spacy.load('en')
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+logger = Logger(__name__).get_logger()
 
 
 def tokenize_de(text):
