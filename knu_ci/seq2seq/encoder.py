@@ -22,7 +22,7 @@ class Encoder(nn.Module):
 
     def forward(self, src):
 
-        # TODO 为什么embedding层需要过dropout
+        # 通过dropout会将一个词embedding的部分给置为0
         embedded = self.dropout(self.embedding(src))
 
         outputs, (hidden, cell) = self.rnn(embedded)

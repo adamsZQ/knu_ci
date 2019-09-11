@@ -65,6 +65,7 @@ def data_loader(batch_size):
     train_data, valid_data, test_data = Multi30k.splits(exts=('.de', '.en'),
                                                         fields=(src_tokens, trg_tokens))
 
+    # 根据 train_data将所有的token转换为id
     src_tokens.build_vocab(train_data, min_freq=2)
     trg_tokens.build_vocab(train_data, min_freq=2)
 
@@ -153,7 +154,7 @@ def epoch_time(start_time, end_time):
 
 
 def seq2seq_train():
-    config = conf['train']
+    config = conf['seq2seq_train']
     batch_size = config['batch_size']
     enc_emb_dim = config['enc_emb_dim']
     dec_emb_dim = config['dec_emb_dim']
@@ -206,7 +207,6 @@ def seq2seq_train():
 
 
 if __name__ == '__main__':
-    logger.info('train.py test')
     seq2seq_train()
 
 

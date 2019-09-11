@@ -1,7 +1,7 @@
 log:
   level: INFO
-  file_path: log/main.log
-train:
+  file_name: main.log
+seq2seq_train:
   batch_size: 128
   enc_emb_dim: 256
   dec_emb_dim: 256
@@ -9,3 +9,15 @@ train:
   enc_dropout: 0.5
   dec_dropout: 0.5
   n_layers: 2
+seq2seq_allen:
+  model: /users4/chzhu/data/character_identification/sem_eval/model
+  train_data: character-identification-trn.tsv
+  valid_data: character-identification-dev.tsv
+  test_data: character-identification-tst.tsv
+  src_embedding_dim: 256
+  hidden_dim: 128
+  batch_size: 32
+  origin_data_prefix: /users4/chzhu/data/character_identification/sem_eval/json
+  processed_data_prefix: /users4/chzhu/data/character_identification/sem_eval/processed
+  epoch: 100
+

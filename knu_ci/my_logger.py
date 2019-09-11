@@ -5,9 +5,7 @@
 import logging
 import os
 
-from knu_ci.utils import conf
-
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+from knu_ci.utils import conf, BASE_DIR
 
 
 class Logger(object):
