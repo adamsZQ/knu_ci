@@ -6,23 +6,28 @@ https://www.aclweb.org/anthology/S18-1107
 ## 代码结构
 .
 |-- ./conf
-|   `-- ./conf/config.yaml  配置文件
+|   `-- ./conf/config.yaml
+|-- ./data
+|   `-- ./data/de_en
 |-- ./knu_ci
 |   |-- ./knu_ci/__init__.py
-|   |-- ./knu_ci/my_logger.py  logger文件
-|   |-- ./knu_ci/seq2seq  torch写（抄）的seq2seq
-|   |-- ./knu_ci/seq2seq_allen  基于allen_nlp写（抄）的seq2seq
-|   |-- ./knu_ci/seq2seq_knu   基于allen_nlp复现的knu ci的代码
+|   |-- ./knu_ci/my_logger.py
+|   |-- ./knu_ci/seq2seq
+|   |-- ./knu_ci/seq2seq_allen
+|   |-- ./knu_ci/seq2seq_knu
 |   `-- ./knu_ci/utils.py
+|-- ./log
+|   `-- ./log/main.log
 |-- ./scripts
 |   |-- ./scripts/__init__.py
-|   |-- ./scripts/data_process  数据处理相关
-|   |-- ./scripts/seq2seq    seq2seq训练脚本
-|   |-- ./scripts/seq2seq_allen   训练脚本
-|   `-- ./scripts/seq2seq_knu   训练脚本
+|   |-- ./scripts/data_process
+|   |-- ./scripts/seq2seq
+|   |-- ./scripts/seq2seq_allen
+|   `-- ./scripts/seq2seq_knu
 `-- ./tests
     |-- ./tests/__init__.py
-    |-- ./tests/test_grammar.py   语法测试文件
-    `-- ./tests/test_log.py   log测试文件
+    |-- ./tests/test_grammar.py
+    `-- ./tests/test_log.py
+
 
 ## 数据
