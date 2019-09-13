@@ -8,17 +8,13 @@ https://www.aclweb.org/anthology/S18-1107
 .
 |-- conf
 |   `-- config.yaml
-|-- data
-|   `-- de_en
 |-- knu_ci
 |   |-- __init__.py
 |   |-- my_logger.py
-|   |-- seq2seq
-|   |-- seq2seq_allen
-|   |-- seq2seq_knu
+|   |-- seq2seq   # by torch
+|   |-- seq2seq_allen   # by allen nlp
+|   |-- seq2seq_knu   # by allen nlp
 |   `-- utils.py
-|-- log
-|   `-- main.log
 |-- scripts
 |   |-- __init__.py
 |   |-- data_process
@@ -29,8 +25,4 @@ https://www.aclweb.org/anthology/S18-1107
     |-- __init__.py
     |-- test_grammar.py
     `-- test_log.py
-
 ```
-
-
-## 数据
