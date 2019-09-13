@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from allennlp.data import Vocabulary
 from allennlp.models import SimpleSeq2Seq
 from allennlp.modules import TextFieldEmbedder, Seq2SeqEncoder, Attention
-from allennlp.training.metrics import SequenceAccuracy, CategoricalAccuracy
+from allennlp.training.metrics import SequenceAccuracy, CategoricalAccuracy, BooleanAccuracy, F1Measure, FBetaMeasure
 from allennlp.nn import util
 
 from torch.nn import GRUCell, Linear
@@ -27,6 +27,8 @@ class Seq2SeqKnu(SimpleSeq2Seq):
         self._attention = attention
 
         self.acc = CategoricalAccuracy()
+        self.label_acc = BooleanAccuracy()
+        self.f1 = FBetaMeasure(average="macro")
 
         self.cuda_device = cuda_device
 
@@ -50,8 +52,12 @@ class Seq2SeqKnu(SimpleSeq2Seq):
                 logits = output_dict['logits']
                 mention_mask = output_dict['mention_mask']
                 target = target_tokens['tokens']
+                predictions = output_dict['predictions']
+                class_probs = output_dict['class_probs']
 
+                self.label_acc(predictions, target, mention_mask)
                 self.acc(logits, target, mention_mask)
+                self.f1(class_probs, target, mention_mask)
 
         return output_dict
 
@@ -89,6 +95,7 @@ class Seq2SeqKnu(SimpleSeq2Seq):
         # 按照token一个个计算
         token_logits = []
         token_predictions = []
+        token_class_probs = []
         for i in range(max_input_sequence_length):
             encoder_slice = encoder_resorted[:, i, :]
 
@@ -96,6 +103,7 @@ class Seq2SeqKnu(SimpleSeq2Seq):
 
             # source_mask_slice = source_mask[:, i].float()
 
+            # TODO decoder hidden需要拼接上 h_encoder_t
             encoder_weights = self._attention(decoder_hidden, encoder_outputs, source_mask.float())
 
             attended_output = util.weighted_sum(encoder_outputs, encoder_weights)
@@ -108,6 +116,8 @@ class Seq2SeqKnu(SimpleSeq2Seq):
 
             class_probabilities = F.softmax(score, dim=-1)
 
+            token_class_probs.append(class_probabilities.unsqueeze(1))
+
             # shape (predicted_classes): (batch_size,)
             _, predicted_classes = torch.max(class_probabilities, 1)
 
@@ -116,8 +126,9 @@ class Seq2SeqKnu(SimpleSeq2Seq):
             token_predictions.append(last_predictions.unsqueeze(1))
 
         predictions = torch.cat(token_predictions, 1)
+        class_probs = torch.cat(token_class_probs, 1)
         # 裁切超过target长度的
-        output_dict = {'predictions': predictions}
+        output_dict = {'predictions': predictions, 'class_probs': class_probs.detach()}
 
         if target_tokens:
 
@@ -125,7 +136,9 @@ class Seq2SeqKnu(SimpleSeq2Seq):
             target_length = targets.size()[1]
 
             predictions_slice = predictions[:, :target_length]
-            output_dict = {'predictions': predictions_slice}
+            class_probs_slice = class_probs[:, :target_length, :]
+            output_dict['predictions'] = predictions_slice
+            output_dict['class_probs'] = class_probs_slice
 
             target_length = targets.size()[1]
             logits = torch.cat(token_logits, 1)
@@ -148,4 +161,7 @@ class Seq2SeqKnu(SimpleSeq2Seq):
         all_metrics: Dict[str, float] = {}
         if not self.training:
             all_metrics.update({'accuracy': self.acc.get_metric(reset=reset)})
+            all_metrics.update({'label_accuracy': self.label_acc.get_metric(reset=reset)})
+            all_metrics.update({'f1': self.f1.get_metric(reset=reset)['fscore']})
+
         return all_metrics

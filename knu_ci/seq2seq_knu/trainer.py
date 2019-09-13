@@ -62,7 +62,18 @@ class KnuTrainer:
             self.vocab = Vocabulary.from_instances(self.train_dataset + self.valid_dataset,
                                                    min_count={'tokens': 3, 'target_tokens': 3})
         elif not training:
-            self.vocab = Vocabulary.from_files(self.model_path)
+            try:
+                self.vocab = Vocabulary.from_files(self.model_path)
+            except Exception as e:
+                logger.exception('vocab file does not exist!')
+
+                # 从文件中读取数据
+                self.train_dataset = self.reader.read(os.path.join(prefix, train_file))
+                self.valid_dataset = self.reader.read(os.path.join(prefix, valid_file))
+
+                # 定义词汇
+                self.vocab = Vocabulary.from_instances(self.train_dataset + self.valid_dataset,
+                                                       min_count={'tokens': 3, 'target_tokens': 3})
 
         # 定义embedding层
         src_embedding = Embedding(num_embeddings=self.vocab.get_vocab_size('tokens'),
