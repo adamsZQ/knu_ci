@@ -15,6 +15,7 @@ from allennlp.modules.seq2seq_encoders import PytorchSeq2SeqWrapper
 from allennlp.modules.text_field_embedders import BasicTextFieldEmbedder
 from allennlp.nn import Activation
 from allennlp.training import Trainer
+from allennlp.training.util import evaluate
 from torch import optim
 from torch.nn import GRUCell
 
@@ -35,6 +36,7 @@ class KnuTrainer:
         prefix = config['processed_data_prefix']
         train_file = config['train_data']
         valid_file = config['valid_data']
+        test_file = config['test_data']
         src_embedding_dim = config['src_embedding_dim']
         hidden_dim = config['hidden_dim']
         batch_size = config['batch_size']
@@ -42,9 +44,9 @@ class KnuTrainer:
         self.model_path = config['model']
 
         if torch.cuda.is_available():
-            cuda_device = 0
+            self.cuda_device = 0
         else:
-            cuda_device = -1
+            self.cuda_device = -1
 
         # 定义数据读取器，WordTokenizer代表按照空格分割，target的namespace用于生成输出层的vocab时不和source混在一起
         self.reader = MySeqDatasetReader(
@@ -62,18 +64,8 @@ class KnuTrainer:
             self.vocab = Vocabulary.from_instances(self.train_dataset + self.valid_dataset,
                                                    min_count={'tokens': 3, 'target_tokens': 3})
         elif not training:
-            try:
-                self.vocab = Vocabulary.from_files(self.model_path)
-            except Exception as e:
-                logger.exception('vocab file does not exist!')
-
-                # 从文件中读取数据
-                self.train_dataset = self.reader.read(os.path.join(prefix, train_file))
-                self.valid_dataset = self.reader.read(os.path.join(prefix, valid_file))
-
-                # 定义词汇
-                self.vocab = Vocabulary.from_instances(self.train_dataset + self.valid_dataset,
-                                                       min_count={'tokens': 3, 'target_tokens': 3})
+            self.test_dataset = self.reader.read(os.path.join(prefix, test_file))
+            self.vocab = Vocabulary.from_files(os.path.join(self.model_path, 'vocab'))
 
         # 定义embedding层
         src_embedding = Embedding(num_embeddings=self.vocab.get_vocab_size('tokens'),
@@ -93,39 +85,40 @@ class KnuTrainer:
 
         # 定义模型
         self.model = Seq2SeqKnu(vocab=self.vocab, source_embedder=source_embedder, encoder=encoder, target_namespace = 'target_tokens',
-                                decoder=decoder, attention=attention, max_decoding_steps=20, cuda_device=cuda_device)
+                                decoder=decoder, attention=attention, max_decoding_steps=20, cuda_device=self.cuda_device)
+
+        # sorting_keys代表batch的时候依据什么排序
+        self.iterator = BucketIterator(batch_size=batch_size, sorting_keys=[("source_tokens", "num_tokens")])
+        # 迭代器需要接受vocab，在训练时可以用vocab来index数据
+        self.iterator.index_with(self.vocab)
 
         # 判断是否训练
         if training and self.model_path is not None:
             optimizer = optim.Adam(self.model.parameters())
-            # sorting_keys代表batch的时候依据什么排序
-            iterator = BucketIterator(batch_size=batch_size, sorting_keys=[("source_tokens", "num_tokens")])
-            # 迭代器需要接受vocab，在训练时可以用vocab来index数据
-            iterator.index_with(self.vocab)
 
-            self.model.cuda(cuda_device)
+            self.model.cuda(self.cuda_device)
 
             # 定义训练器
             self.trainer = Trainer(model=self.model,
                                    optimizer=optimizer,
-                                   iterator=iterator,
+                                   iterator=self.iterator,
                                    patience=10,
                                    validation_metric="+accuracy",
                                    train_dataset=self.train_dataset,
                                    validation_dataset=self.valid_dataset,
                                    serialization_dir=self.model_path,
                                    num_epochs=epoch,
-                                   cuda_device=cuda_device)
+                                   cuda_device=self.cuda_device)
         elif not training:
             with open(os.path.join(self.model_path, 'best.th'), 'rb') as f:
                 self.model.load_state_dict(torch.load(f))
-            self.model.cuda(cuda_device)
+            self.model.cuda(self.cuda_device)
             self.predictor = MySeqPredictor(self.model, dataset_reader=self.reader)
 
     def train(self):
         if self.training:
+            self.vocab.save_to_files(os.path.join(self.model_path, 'vocab'))
             self.trainer.train()
-            self.vocab.save_to_files(self.model_path)
         else:
             logger.warning('Model is not in training state!')
 
@@ -135,4 +128,10 @@ class KnuTrainer:
         else:
             logger.warning('Mode is in training state!')
 
+    def evaluate(self):
+        if not self.training:
+            final_metrics = evaluate(self.model, self.test_dataset, self.iterator, self.cuda_device, batch_weight_key=None)
+            return final_metrics
+        else:
+            logger.warning('Mode is in training state!')
 

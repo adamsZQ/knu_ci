@@ -10,7 +10,7 @@ seq2seq_train:
   dec_dropout: 0.5
   n_layers: 2
 seq2seq_allen:
-  model: /users4/chzhu/data/character_identification/sem_eval/model_with_f1
+  model: /users4/chzhu/data/character_identification/sem_eval/model2
   train_data: character-identification-trn.tsv
   valid_data: character-identification-dev.tsv
   test_data: character-identification-tst.tsv

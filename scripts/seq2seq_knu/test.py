@@ -13,20 +13,10 @@ from knu_ci.seq2seq_knu.trainer import KnuTrainer, logger
 
 def evaluate():
     model = KnuTrainer(training=False)
-    result = model.predict({'source_tokens': "All right Joey , be nice .",
-                            'gold_mentions': '[2]'})
-    # JoeyTribbiani
-    logger.info(result)
 
-    result = model.predict({'source_tokens': "This guy says hello , I wan na kill myself",
-                            'gold_mentions': '[1, 5, 9]'})
-    #  RossGeller JoeyTribbiani JoeyTribbiani
-    logger.info(result)
+    final_metrics = model.evaluate()
 
-    result = model.predict({'source_tokens': "Let me get you some coffee .",
-                            'gold_mentions': '[1, 3]'})
-    # MonicaGeller RossGeller
-    logger.info(result)
+    logger.info(final_metrics)
 
 
 if __name__ == '__main__':
