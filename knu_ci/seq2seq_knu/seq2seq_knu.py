@@ -2,18 +2,18 @@
 # -*- coding: utf-8 -*-
 # @Time    : 6/9/19 8:10 PM
 # @Author  : zchai
-from typing import Dict, overload, List, Tuple
+from typing import Dict
 
 import torch
 import torch.nn.functional as F
 
 from allennlp.data import Vocabulary
 from allennlp.models import SimpleSeq2Seq
-from allennlp.modules import TextFieldEmbedder, Seq2SeqEncoder, Attention
-from allennlp.training.metrics import SequenceAccuracy, CategoricalAccuracy, BooleanAccuracy, F1Measure, FBetaMeasure
+from allennlp.modules import TextFieldEmbedder, Seq2SeqEncoder
+from allennlp.training.metrics import CategoricalAccuracy, BooleanAccuracy, FBetaMeasure
 from allennlp.nn import util
 
-from torch.nn import GRUCell, Linear
+from torch.nn import Linear
 
 
 class Seq2SeqKnu(SimpleSeq2Seq):
@@ -36,13 +36,21 @@ class Seq2SeqKnu(SimpleSeq2Seq):
 
         num_classes = self.vocab.get_vocab_size(self._target_namespace)
 
+        # hidden 是decoder_hidden, attended_output 和 encoder_slice的拼接, 所以需要 * 3
         self._output_projection_layer = Linear(self._decoder_output_dim * 3, num_classes)
 
     def forward(self,
                 source_tokens: Dict[str, torch.LongTensor],
                 gold_mentions,
                 target_tokens: Dict[str, torch.LongTensor] = None) -> Dict[str, torch.Tensor]:
+        """
 
+        :param source_tokens: sentence序列化后
+        :param gold_mentions: 表示第几个位置是mention
+        :param target_tokens: mention对应的target
+        :return:
+        """
+        # (batch_size, max_sentence_length, embedding_dim)
         state = self._encode(source_tokens)
 
         output_dict = self._forward_loop(state, gold_mentions, target_tokens)
@@ -68,21 +76,26 @@ class Seq2SeqKnu(SimpleSeq2Seq):
         # shape: (batch_size, max_input_sequence_length)
         source_mask = state["source_mask"]
 
+        # shape: (batch_size, max_input_sequence_length, embedding_dim)
         encoder_outputs = state['encoder_outputs']
 
         batch_size = source_mask.size()[0]
 
         max_input_sequence_length = source_mask.size()[1]
+
         # 下面两步将gold_mention用0扩充到 (batch_size, max_input_sequence_length)
         gold_mentions_expanded = torch.zeros(batch_size, max_input_sequence_length).cuda(self.cuda_device)
         gold_mentions_expanded[:, :gold_mentions.size()[1]] = gold_mentions
 
+        # 通过get_text_field_mask, 用0-1表示当前位置是否有效
+        # shape: (batch_size, mac_input_sequence_length)
         mention_mask = util.get_text_field_mask({'gold_mentions': gold_mentions_expanded})
 
         for b in range(batch_size):
             encoder_output = encoder_outputs[b]
             gold_mention = gold_mentions_expanded[b]
-            # 选择特定index的output，剩余的用0位置的output填充
+            # 选择对应mention的output，剩余的用0位置的output填充
+            # 例如gold_mention = [3,5,0,0], 那么就选择3和5位置的output，并且用0位置的output填充矩阵剩余部分
             encoder_selected = torch.index_select(encoder_output, 0, gold_mention.long())
 
             if b == 0:
@@ -90,6 +103,8 @@ class Seq2SeqKnu(SimpleSeq2Seq):
             else:
                 encoder_resorted = torch.cat((encoder_resorted, encoder_selected.unsqueeze(0)), 0)
 
+        # 通过decoder进行输出
+        # shape: (batch_size, max_sentence_length, num_classes)
         decoder_outputs = self._decode(encoder_resorted, mention_mask)
 
         # 按照token一个个计算
@@ -106,10 +121,14 @@ class Seq2SeqKnu(SimpleSeq2Seq):
             # TODO decoder hidden需要拼接上 h_encoder_t
             encoder_weights = self._attention(decoder_hidden, encoder_outputs, source_mask.float())
 
+            # 加权求和
+            # shape: (batch_size, hidden_dim)
             attended_output = util.weighted_sum(encoder_outputs, encoder_weights)
 
+            # shape: (batch_size, hidden_dim * 3)
             hidden_attention_cat = torch.cat((decoder_hidden, attended_output, encoder_slice), -1)
 
+            # shape: (batch_size, num_classes)
             score = self._output_projection_layer(hidden_attention_cat)
 
             token_logits.append(score.unsqueeze(1))
@@ -135,6 +154,8 @@ class Seq2SeqKnu(SimpleSeq2Seq):
             targets = target_tokens['tokens']
             target_length = targets.size()[1]
 
+            # 下面的步骤主要在做裁切，因为输出的shape是(batch_size, max_sentence_length, num_classes)
+            # 而target是(batch_size, max_target_length) max_sentence_length 和 max_target_length不相等
             predictions_slice = predictions[:, :target_length]
             class_probs_slice = class_probs[:, :target_length, :]
             output_dict['predictions'] = predictions_slice
